@@ -1,6 +1,62 @@
 # CarND-Controls-MPC
 Self-Driving Car Engineer Nanodegree Program
 
+# PROJECT WRITEUP
+
+## Model Overview
+
+After implementing PID control in a previous project, we will now use MPC (Model Predictive Control) in the current project to improve and build a more stable controller. This will control the steering, velocity and throttle of the car to promise an optimised predicted trajectory.
+
+This is done by modeling the state of the vehicle and predicting the state based on actuators into the future. More specifically, this is achieved by implementing this as a cost function and trying to minimize it.
+
+### State
+
+1. `px`: x-axis vehicle position
+2. `py`: y-axis vehicle position
+3. `psi`: heading of vehicle
+4. `v`: speed of vehicle
+5. `cte`: cross track error (offset of vehicle from center of road)
+6. `epsi`: heading error (diff between ideal and actual heading/direction)
+
+### Actuators
+
+1. Steering
+2. Throttle - this combines acceleration and braking into one value
+
+### Update
+
+The model loop runs at a frequency of every 125ms. This delay takes into account the processing time of solver as well as the latency involved in communication with the simulator.
+
+### Tuning
+
+* `N` = 10 (number of predictions to make into the future, as large as possible)
+* `dt` = 0.18 (the time gap between predictions, as small as possible)
+
+If `N` is too large, it will slow down the processing without any benefit as the prediction too far into the future will be invalid. Similarly, too small a `dt` will require even more frequent calculations, and if the model is not able to keep up, then it will lead to instability.
+
+### Pre-processing
+
+Incoming data from the simulator that needs to be transformed:
+
+* Reference trajectory - `x`
+* Reference trajectory - `y`
+* Vehicle position - `x`
+* Vehicle position - `y`
+* Heading of the vehicle - `psi`
+* Speed of the vehicle - `v`
+* Steering
+* Throttle
+
+1. First, waypoint coordinates are transformed to global co-ordinate system:
+
+```
+ptsx[i] = (shift_x * cos(0-psi) - shift_y * sin(0-psi))
+ptsy[i] = (shift_x * sin(0-psi) + shift_y * cos(0-psi))
+```
+
+2. Next, cross track error is found by fitting the transformed coordinates into third degree polynomial.
+3. Re-evaluation of the state considering 125 ms delay, before passing the data to the solver.
+
 ---
 
 ## Dependencies
@@ -19,7 +75,7 @@ Self-Driving Car Engineer Nanodegree Program
   * Run either `install-mac.sh` or `install-ubuntu.sh`.
   * If you install from source, checkout to commit `e94b6e1`, i.e.
     ```
-    git clone https://github.com/uWebSockets/uWebSockets 
+    git clone https://github.com/uWebSockets/uWebSockets
     cd uWebSockets
     git checkout e94b6e1
     ```
@@ -31,7 +87,7 @@ Self-Driving Car Engineer Nanodegree Program
   * Mac: `brew install ipopt`
   * Linux
     * You will need a version of Ipopt 3.12.1 or higher. The version available through `apt-get` is 3.11.x. If you can get that version to work great but if not there's a script `install_ipopt.sh` that will install Ipopt. You just need to download the source from the Ipopt [releases page](https://www.coin-or.org/download/source/Ipopt/) or the [Github releases](https://github.com/coin-or/Ipopt/releases) page.
-    * Then call `install_ipopt.sh` with the source directory as the first argument, ex: `bash install_ipopt.sh Ipopt-3.12.1`. 
+    * Then call `install_ipopt.sh` with the source directory as the first argument, ex: `bash install_ipopt.sh Ipopt-3.12.1`.
   * Windows: TODO. If you can use the Linux subsystem and follow the Linux instructions.
 * [CppAD](https://www.coin-or.org/CppAD/)
   * Mac: `brew install cppad`
