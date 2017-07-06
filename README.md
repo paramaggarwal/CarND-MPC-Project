@@ -30,7 +30,7 @@ The model loop runs at a frequency of every 125ms. This delay takes into account
 ### Tuning
 
 * `N` = 10 (number of predictions to make into the future, as large as possible)
-* `dt` = 0.18 (the time gap between predictions, as small as possible)
+* `dt` = 0.1 (the time gap between predictions, as small as possible)
 
 If `N` is too large, it will slow down the processing without any benefit as the prediction too far into the future will be invalid. Similarly, too small a `dt` will require even more frequent calculations, and if the model is not able to keep up, then it will lead to instability.
 
@@ -55,6 +55,16 @@ ptsy[i] = (shift_x * sin(0-psi) + shift_y * cos(0-psi))
 ```
 
 2. Next, cross track error is found by fitting the transformed coordinates into third degree polynomial.
+
+```
+fg[2 + x_start + i]    = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
+fg[2 + y_start + i]    = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
+fg[2 + psi_start + i]  = psi1 - (psi0 + v0 * delta0 / Lf * dt);
+fg[2 + v_start + i]    = v1 - (v0 + a0 * dt);
+fg[2 + cte_start + i]  = cte1 - ((f0 - y0) + v0 * CppAD::sin(epsi0) * dt);
+fg[2 + epsi_start + i] = epsi1 - ((psi0 - psides0) + v0 * delta0 / Lf * dt);
+```
+
 3. Re-evaluation of the state considering 125 ms delay, before passing the data to the solver.
 
 ---

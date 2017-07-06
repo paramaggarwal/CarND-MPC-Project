@@ -9,8 +9,9 @@
 #include "MPC.h"
 #include "json.hpp"
 
-#define LATENCY (0.15)
+#define LATENCY (0.1)
 #define Lf (2.67)
+
 // for convenience
 using json = nlohmann::json;
 
@@ -78,7 +79,7 @@ int main() {
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
     string sdata = string(data).substr(0, length);
-    cout << sdata << endl;
+    // cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
       string s = hasData(sdata);
       if (s != "") {
@@ -92,6 +93,11 @@ int main() {
           double py  = j[1]["y"];
           double psi = j[1]["psi"];
           double v   = j[1]["speed"];
+          double steer_value = j[1]["steering_angle"];
+          double throttle_value = j[1]["throttle"];
+
+          // steering values from simulator are reverse
+          steer_value = -steer_value;
 
           // convert waypoints to car coordinates
           for (int i = 0; i < ptsx.size(); i++) {
@@ -108,18 +114,15 @@ int main() {
 
           // fit polynomial
           auto coeff = polyfit(ptsx_transform, ptsy_transform, 3);
-
           double cte = polyeval(coeff, 0);
           double epsi = -atan(coeff[1]);
-          double steer_value = j[1]["steering_angle"];
-          double throttle_value = j[1]["throttle"];
 
           double px_t1 = 0.0 + v * cos (0.0) * LATENCY;
           double py_t1 = 0.0 + v * sin (0.0) * LATENCY;
-          double psi_t1 = 0.0 - (v / Lf) * steer_value * LATENCY;
+          double psi_t1 = 0.0 + (v / Lf) * steer_value * LATENCY;
           double v_t1 = v + throttle_value * LATENCY;
-          double cte_t1 = cte - v * sin(epsi) * LATENCY;
-          double epsi_t1 = epsi - (v / Lf)* steer_value * LATENCY;
+          double cte_t1 = cte + v * sin(epsi) * LATENCY;
+          double epsi_t1 = epsi + (v / Lf) * steer_value * LATENCY;
 
           /*
           * TODO: Calculate steeering angle and throttle using MPC.
@@ -133,7 +136,10 @@ int main() {
           vector<double> solution = mpc.Solve(x0, coeff);
 
           json msgJson;
-          msgJson["steering_angle"] = solution[0] / (deg2rad(25) * Lf);
+          // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
+          // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
+          // steering values expected by simulator are reverse
+          msgJson["steering_angle"] = - solution[0] / deg2rad(25);
           msgJson["throttle"]       = solution[1];
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
@@ -141,7 +147,7 @@ int main() {
 
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
-          for (int i = 0; i < solution.size(); i++) {
+          for (int i = 2; i < solution.size(); i++) {
             if (i%2 == 0) {
               mpc_x_vals.push_back(solution[i]);
             } else {
@@ -157,9 +163,9 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
-          for (int i = 0; i < 25; i++) {
-            next_x_vals.push_back(i * 2.5);
-            next_y_vals.push_back(polyeval(coeff, i * 2.5));
+          for (int i = 0; i < 40; i++) {
+            next_x_vals.push_back(i);
+            next_y_vals.push_back(polyeval(coeff, i));
           }
 
           msgJson["next_x"] = next_x_vals;
@@ -167,7 +173,7 @@ int main() {
 
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+          // std::cout << msg << std::endl;
           // Latency
           // The purpose is to mimic real driving conditions where
           // the car does actuate the commands instantly.
